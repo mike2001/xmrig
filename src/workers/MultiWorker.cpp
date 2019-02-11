@@ -6,7 +6,8 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2018      Lee Clagett <https://github.com/vtnerd>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018      SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -50,25 +51,47 @@ MultiWorker<N>::~MultiWorker()
 template<size_t N>
 bool MultiWorker<N>::selfTest()
 {
-    if (m_thread->algorithm() == xmrig::CRYPTONIGHT) {
-        return verify(xmrig::VARIANT_0,   test_output_v0) &&
-               verify(xmrig::VARIANT_1,   test_output_v1) &&
-               verify(xmrig::VARIANT_XTL, test_output_xtl) &&
-               verify(xmrig::VARIANT_MSR, test_output_msr);
+    using namespace xmrig;
+
+    if (m_thread->algorithm() == CRYPTONIGHT) {
+        const bool rc = verify(VARIANT_0,    test_output_v0)  &&
+                        verify(VARIANT_1,    test_output_v1)  &&
+                        verify(VARIANT_2,    test_output_v2)  &&
+                        verify(VARIANT_XTL,  test_output_xtl) &&
+                        verify(VARIANT_MSR,  test_output_msr) &&
+                        verify(VARIANT_XAO,  test_output_xao) &&
+                        verify(VARIANT_RTO,  test_output_rto) &&
+                        verify(VARIANT_HALF, test_output_half);
+
+#       ifndef XMRIG_NO_CN_GPU
+        if (!rc || N > 1) {
+            return rc;
+        }
+
+        return verify(VARIANT_GPU, test_output_gpu);
+#       else
+        return rc;
+#       endif
     }
 
 #   ifndef XMRIG_NO_AEON
-    if (m_thread->algorithm() == xmrig::CRYPTONIGHT_LITE) {
-        return verify(xmrig::VARIANT_0,    test_output_v0_lite) &&
-               verify(xmrig::VARIANT_1,    test_output_v1_lite) &&
-               verify(xmrig::VARIANT_IPBC, test_output_ipbc_lite);
+    if (m_thread->algorithm() == CRYPTONIGHT_LITE) {
+        return verify(VARIANT_0,    test_output_v0_lite) &&
+               verify(VARIANT_1,    test_output_v1_lite);
     }
 #   endif
 
 #   ifndef XMRIG_NO_SUMO
-    if (m_thread->algorithm() == xmrig::CRYPTONIGHT_HEAVY) {
-        return verify(xmrig::VARIANT_0,   test_output_v0_heavy) &&
-               verify(xmrig::VARIANT_XHV, test_output_xhv_heavy);
+    if (m_thread->algorithm() == CRYPTONIGHT_HEAVY) {
+        return verify(VARIANT_0,    test_output_v0_heavy)  &&
+               verify(VARIANT_XHV,  test_output_xhv_heavy) &&
+               verify(VARIANT_TUBE, test_output_tube_heavy);
+    }
+#   endif
+
+#   ifndef XMRIG_NO_CN_PICO
+    if (m_thread->algorithm() == CRYPTONIGHT_PICO) {
+        return verify(VARIANT_TRTL, test_output_pico_trtl);
     }
 #   endif
 
@@ -98,11 +121,11 @@ void MultiWorker<N>::start()
                 storeStats();
             }
 
-            m_thread->fn(m_state.job.variant())(m_state.blob, m_state.job.size(), m_hash, m_ctx);
+            m_thread->fn(m_state.job.algorithm().variant())(m_state.blob, m_state.job.size(), m_hash, m_ctx);
 
             for (size_t i = 0; i < N; ++i) {
                 if (*reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24) < m_state.job.target()) {
-                    Workers::submit(JobResult(m_state.job.poolId(), m_state.job.id(), *nonce(i), m_hash + (i * 32), m_state.job.diff(), m_state.job.algorithm()));
+                    Workers::submit(JobResult(m_state.job.poolId(), m_state.job.id(), m_state.job.clientId(), *nonce(i), m_hash + (i * 32), m_state.job.diff(), m_state.job.algorithm()));
                 }
 
                 *nonce(i) += 1;

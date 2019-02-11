@@ -4,8 +4,9 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2017-2019 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -45,6 +46,7 @@
 
 Pool::Pool() :
     m_nicehash(false),
+    m_tls(false),
     m_keepAlive(0),
     m_port(kDefaultPort)
 {
@@ -64,6 +66,7 @@ Pool::Pool() :
  */
 Pool::Pool(const char *url) :
     m_nicehash(false),
+    m_tls(false),
     m_keepAlive(0),
     m_port(kDefaultPort)
 {
@@ -71,8 +74,9 @@ Pool::Pool(const char *url) :
 }
 
 
-Pool::Pool(const char *host, uint16_t port, const char *user, const char *password, int keepAlive, bool nicehash) :
+Pool::Pool(const char *host, uint16_t port, const char *user, const char *password, int keepAlive, bool nicehash, bool tls) :
     m_nicehash(nicehash),
+    m_tls(tls),
     m_keepAlive(keepAlive),
     m_port(port),
     m_host(host),
@@ -102,8 +106,8 @@ bool Pool::isCompatible(const xmrig::Algorithm &algorithm) const
     }
 
 #   ifdef XMRIG_PROXY_PROJECT
-    if (m_algorithm.algo() == xmrig::CRYPTONIGHT && algorithm.algo() == xmrig::CRYPTONIGHT && m_algorithm.variant() == xmrig::VARIANT_XTL) {
-        return true;
+    if (m_algorithm.algo() == xmrig::CRYPTONIGHT && algorithm.algo() == xmrig::CRYPTONIGHT) {
+        return m_algorithm.variant() == xmrig::VARIANT_XTL || m_algorithm.variant() == xmrig::VARIANT_MSR;
     }
 #   endif
 
@@ -113,15 +117,17 @@ bool Pool::isCompatible(const xmrig::Algorithm &algorithm) const
 
 bool Pool::isEqual(const Pool &other) const
 {
-    return (m_nicehash     == other.m_nicehash
-            && m_keepAlive == other.m_keepAlive
-            && m_port      == other.m_port
-            && m_algorithm == other.m_algorithm
-            && m_host      == other.m_host
-            && m_password  == other.m_password
-            && m_rigId     == other.m_rigId
-            && m_url       == other.m_url
-            && m_user      == other.m_user);
+    return (m_nicehash       == other.m_nicehash
+            && m_tls         == other.m_tls
+            && m_keepAlive   == other.m_keepAlive
+            && m_port        == other.m_port
+            && m_algorithm   == other.m_algorithm
+            && m_fingerprint == other.m_fingerprint
+            && m_host        == other.m_host
+            && m_password    == other.m_password
+            && m_rigId       == other.m_rigId
+            && m_url         == other.m_url
+            && m_user        == other.m_user);
 }
 
 
@@ -133,7 +139,13 @@ bool Pool::parse(const char *url)
     const char *base = url;
 
     if (p) {
-        if (strncasecmp(url, "stratum+tcp://", 14)) {
+        if (strncasecmp(url, "stratum+tcp://", 14) == 0) {
+            m_tls = false;
+        }
+        else if (strncasecmp(url, "stratum+ssl://", 14) == 0) {
+            m_tls = true;
+        }
+        else {
             return false;
         }
 
@@ -191,10 +203,10 @@ rapidjson::Value Pool::toJSON(rapidjson::Document &doc) const
 
     Value obj(kObjectType);
 
-    obj.AddMember("url",    StringRef(url()), allocator);
-    obj.AddMember("user",   StringRef(user()), allocator);
-    obj.AddMember("pass",   StringRef(password()), allocator);
-    obj.AddMember("rig-id", rigId() ? Value(StringRef(rigId())).Move() : Value(kNullType).Move(), allocator);
+    obj.AddMember("url",    m_url.toJSON(), allocator);
+    obj.AddMember("user",   m_user.toJSON(), allocator);
+    obj.AddMember("pass",   m_password.toJSON(), allocator);
+    obj.AddMember("rig-id", m_rigId.toJSON(), allocator);
 
 #   ifndef XMRIG_PROXY_PROJECT
     obj.AddMember("nicehash", isNicehash(), allocator);
@@ -214,46 +226,31 @@ rapidjson::Value Pool::toJSON(rapidjson::Document &doc) const
         obj.AddMember("variant", m_algorithm.variant(), allocator);
         break;
 
+    case xmrig::VARIANT_2:
+        obj.AddMember("variant", 2, allocator);
+        break;
+
     default:
         obj.AddMember("variant", StringRef(m_algorithm.variantName()), allocator);
         break;
     }
 
+    obj.AddMember("tls",             isTLS(), allocator);
+    obj.AddMember("tls-fingerprint", m_fingerprint.toJSON(), allocator);
+
     return obj;
 }
 
 
-void Pool::adjust(xmrig::Algo algorithm)
+void Pool::adjust(const xmrig::Algorithm &algorithm)
 {
     if (!isValid()) {
         return;
     }
 
     if (!m_algorithm.isValid()) {
-        m_algorithm.setAlgo(algorithm);
-
-        if (m_algorithm.variant() == xmrig::VARIANT_AUTO) {
-            if (algorithm == xmrig::CRYPTONIGHT_HEAVY)  {
-                m_algorithm.setVariant(xmrig::VARIANT_0);
-            }
-            else {
-                m_algorithm.setVariant(xmrig::VARIANT_1);
-            }
-        }
-    }
-
-    if (strstr(m_host.data(), ".nicehash.com")) {
-        m_keepAlive = false;
-        m_nicehash  = true;
-
-        if (strstr(m_host.data(), "cryptonightv7.")) {
-            m_algorithm.setVariant(xmrig::VARIANT_1);
-        }
-    }
-
-    if (strstr(m_host.data(), ".minergate.com")) {
-        m_keepAlive = false;
-        m_algorithm.setVariant(xmrig::VARIANT_1);
+        m_algorithm.setAlgo(algorithm.algo());
+        adjustVariant(algorithm.variant());
     }
 
     rebuild();
@@ -318,18 +315,114 @@ void Pool::addVariant(xmrig::Variant variant)
 }
 
 
+void Pool::adjustVariant(const xmrig::Variant variantHint)
+{
+#   ifndef XMRIG_PROXY_PROJECT
+    using namespace xmrig;
+
+    if (m_host.contains(".nicehash.com")) {
+        m_keepAlive = false;
+        m_nicehash  = true;
+        bool valid  = true;
+
+        switch (m_port) {
+        case 3355:
+        case 33355:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonight.");
+            m_algorithm.setVariant(VARIANT_0);
+            break;
+
+        case 3363:
+        case 33363:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonightv7.");
+            m_algorithm.setVariant(VARIANT_1);
+            break;
+
+        case 3364:
+            valid = m_algorithm.algo() == CRYPTONIGHT_HEAVY && m_host.contains("cryptonightheavy.");
+            m_algorithm.setVariant(VARIANT_0);
+            break;
+
+        case 3367:
+        case 33367:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonightv8.");
+            m_algorithm.setVariant(VARIANT_2);
+            break;
+
+        default:
+            break;
+        }
+
+        if (!valid) {
+            m_algorithm.setAlgo(INVALID_ALGO);
+        }
+
+        m_tls = m_port > 33000;
+        return;
+    }
+
+    if (m_host.contains(".minergate.com")) {
+        m_keepAlive = false;
+        bool valid  = true;
+        m_algorithm.setVariant(VARIANT_1);
+
+        if (m_host.contains("xmr.pool.")) {
+            valid = m_algorithm.algo() == CRYPTONIGHT;
+            m_algorithm.setVariant(m_port == 45700 ? VARIANT_AUTO : VARIANT_0);
+        }
+        else if (m_host.contains("aeon.pool.") && m_port == 45690) {
+            valid = m_algorithm.algo() == CRYPTONIGHT_LITE;
+            m_algorithm.setVariant(VARIANT_1);
+        }
+
+        if (!valid) {
+            m_algorithm.setAlgo(INVALID_ALGO);
+        }
+
+        return;
+    }
+
+    if (variantHint != VARIANT_AUTO) {
+        m_algorithm.setVariant(variantHint);
+        return;
+    }
+
+    if (m_algorithm.variant() != VARIANT_AUTO) {
+        return;
+    }
+
+    if (m_algorithm.algo() == CRYPTONIGHT_HEAVY)  {
+        m_algorithm.setVariant(VARIANT_0);
+    }
+    else if (m_algorithm.algo() == CRYPTONIGHT_LITE) {
+        m_algorithm.setVariant(VARIANT_1);
+    }
+#   endif
+}
+
+
 void Pool::rebuild()
 {
     m_algorithms.clear();
+
+    if (!m_algorithm.isValid()) {
+        return;
+    }
+
     m_algorithms.push_back(m_algorithm);
 
 #   ifndef XMRIG_PROXY_PROJECT
+    addVariant(xmrig::VARIANT_2);
     addVariant(xmrig::VARIANT_1);
     addVariant(xmrig::VARIANT_0);
+    addVariant(xmrig::VARIANT_HALF);
     addVariant(xmrig::VARIANT_XTL);
-    addVariant(xmrig::VARIANT_IPBC);
+    addVariant(xmrig::VARIANT_TUBE);
     addVariant(xmrig::VARIANT_MSR);
     addVariant(xmrig::VARIANT_XHV);
+    addVariant(xmrig::VARIANT_XAO);
+    addVariant(xmrig::VARIANT_RTO);
+    addVariant(xmrig::VARIANT_GPU);
     addVariant(xmrig::VARIANT_AUTO);
 #   endif
 }

@@ -1,3 +1,58 @@
+# v2.11.0
+- [#928](https://github.com/xmrig/xmrig/issues/928) Added support for new algorithm `cryptonight/gpu`, short alias `cn/gpu` (original name `cryptonight-gpu`), for upcoming [Ryo currency](https://ryo-currency.com) fork on February 14.
+- [#749](https://github.com/xmrig/xmrig/issues/749) Added support for detect hardware AES in runtime on ARMv8 platforms.
+- [#292](https://github.com/xmrig/xmrig/issues/292) Fixed build on ARMv8 platforms if compiler not support hardware AES.
+
+# v2.10.0
+- [#904](https://github.com/xmrig/xmrig/issues/904) Added new algorithm `cn-pico/trtl` (aliases `cryptonight-turtle`, `cn-trtl`) for upcoming TurtleCoin (TRTL) fork.
+- Default value for option `max-cpu-usage` changed to `100` also this option now deprecated.
+
+# v2.9.4
+- [#913](https://github.com/xmrig/xmrig/issues/913) Fixed Masari (MSR) support (this update required for upcoming fork).
+- [#915](https://github.com/xmrig/xmrig/pull/915) Improved security, JIT memory now read-only after patching.
+
+# v2.9.3
+- [#909](https://github.com/xmrig/xmrig/issues/909) Fixed compile errors on FreeBSD.
+- [#912](https://github.com/xmrig/xmrig/pull/912) Fixed, C++ implementation of `cn/half` was produce up to 13% of invalid hashes.
+
+# v2.9.2
+- [#907](https://github.com/xmrig/xmrig/pull/907) Fixed crash on Linux.
+
+# v2.9.1
+- Restored compatibility with https://stellite.hashvault.pro.
+
+# v2.9.0
+- [#899](https://github.com/xmrig/xmrig/issues/899) Added support for new algorithm `cn/half` for Masari and Stellite forks.
+- [#834](https://github.com/xmrig/xmrig/pull/834) Added ASM optimized code for AMD Bulldozer.
+- [#839](https://github.com/xmrig/xmrig/issues/839) Fixed FreeBSD compile.
+- [#857](https://github.com/xmrig/xmrig/pull/857) Fixed impossible to build for macOS without clang.
+
+# v2.8.3
+- [#813](https://github.com/xmrig/xmrig/issues/813) Fixed critical bug with Minergate pool and variant 2.
+
+# v2.8.1
+- [#768](https://github.com/xmrig/xmrig/issues/768) Fixed build with Visual Studio 2015.
+- [#769](https://github.com/xmrig/xmrig/issues/769) Fixed regression, some ANSI escape sequences was in log with disabled colors.
+- [#777](https://github.com/xmrig/xmrig/issues/777) Better report about pool connection issues. 
+- Simplified checks for ASM auto detection, only AES support necessary.
+- Added missing options to `--help` output.
+
+# v2.8.0
+- **[#753](https://github.com/xmrig/xmrig/issues/753) Added new algorithm [CryptoNight variant 2](https://github.com/xmrig/xmrig/issues/753) for Monero fork, thanks [@SChernykh](https://github.com/SChernykh).**
+  - Added global and per thread option `"asm"` and and command line equivalent.
+- **[#758](https://github.com/xmrig/xmrig/issues/758) Added SSL/TLS support for secure connections to pools.**
+  - Added per pool options `"tls"` and `"tls-fingerprint"` and command line equivalents.
+- [#767](https://github.com/xmrig/xmrig/issues/767) Added config autosave feature, same with GPU miners.  
+- [#245](https://github.com/xmrig/xmrig-proxy/issues/245) Fixed API ID collision when run multiple miners on same machine.
+- [#757](https://github.com/xmrig/xmrig/issues/757) Fixed send buffer overflow.
+
+# v2.6.4
+- [#700](https://github.com/xmrig/xmrig/issues/700) `cryptonight-lite/ipbc` replaced to `cryptonight-heavy/tube` for **Bittube (TUBE)**.
+- Added `cryptonight/rto` (cryptonight variant 1 with IPBC/TUBE mod) variant for **Arto (RTO)** coin.
+- Added `cryptonight/xao` (original cryptonight with bigger iteration count) variant for **Alloy (XAO)** coin.
+- Better variant detection for **nicehash.com** and **minergate.com**.
+- [#692](https://github.com/xmrig/xmrig/issues/692) Added support for specify both algorithm and variant via single `algo` option.
+
 # v2.6.3
 - **Added support for new cryptonight-heavy variant xhv** (`cn-heavy/xhv`) for upcoming Haven Protocol fork.
 - **Added support for new cryptonight variant msr** (`cn/msr`) also known as `cryptonight-fast` for upcoming Masari fork.

@@ -4,8 +4,8 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2016-2017 XMRig       <support@xmrig.com>
- *
+ * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,34 +21,35 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-#ifdef __FreeBSD__
-#   include <sys/types.h>
-#   include <sys/param.h>
-#   include <sys/cpuset.h>
-#   include <pthread_np.h>
-#endif
+#ifndef __BASICLOG_H__
+#define __BASICLOG_H__
 
 
-#include <pthread.h>
-#include <sched.h>
-#include <unistd.h>
-#include <string.h>
+#include <uv.h>
 
 
-#include "Cpu.h"
+#include "common/interfaces/ILogBackend.h"
 
 
-#ifdef __FreeBSD__
-typedef cpuset_t cpu_set_t;
-#endif
-
-
-void Cpu::init()
-{
-#   ifdef XMRIG_NO_LIBCPUID
-    m_totalThreads = sysconf(_SC_NPROCESSORS_CONF);
-#   endif
-
-    initCommon();
+namespace xmrig {
+    class Controller;
 }
+
+
+class BasicLog : public ILogBackend
+{
+public:
+    BasicLog();
+
+    void message(Level level, const char *fmt, va_list args) override;
+    void text(const char *fmt, va_list args) override;
+
+private:
+    bool isWritable() const;
+    void print(va_list args);
+
+    char m_buf[kBufferSize];
+    char m_fmt[256];
+};
+
+#endif /* __BASICLOG_H__ */

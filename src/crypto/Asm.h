@@ -21,46 +21,30 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __CPU_H__
-#define __CPU_H__
+#ifndef XMRIG_ASM_H
+#define XMRIG_ASM_H
 
 
-#include <stdint.h>
+#include "common/xmrig.h"
+#include "rapidjson/fwd.h"
 
 
-class Cpu
+namespace xmrig {
+
+
+class Asm
 {
 public:
-    enum Flags {
-        X86_64 = 1,
-        AES    = 2,
-        BMI2   = 4
-    };
+    static Assembly parse(const char *assembly, Assembly defaultValue = ASM_AUTO);
+    static Assembly parse(const rapidjson::Value &value, Assembly defaultValue = ASM_AUTO);
+    static const char *toString(Assembly assembly);
+    static rapidjson::Value toJSON(Assembly assembly);
 
-    static size_t optimalThreadsCount(size_t size, int maxCpuUsage);
-    static void init();
-
-    static inline bool hasAES()       { return (m_flags & AES) != 0; }
-    static inline bool isX64()        { return (m_flags & X86_64) != 0; }
-    static inline const char *brand() { return m_brand; }
-    static inline int cores()         { return m_totalCores; }
-    static inline int l2()            { return m_l2_cache; }
-    static inline int l3()            { return m_l3_cache; }
-    static inline int sockets()       { return m_sockets; }
-    static inline int threads()       { return m_totalThreads; }
-
-private:
-    static void initCommon();
-
-    static bool m_l2_exclusive;
-    static char m_brand[64];
-    static int m_flags;
-    static int m_l2_cache;
-    static int m_l3_cache;
-    static int m_sockets;
-    static int m_totalCores;
-    static size_t m_totalThreads;
+    inline static Assembly parse(bool enable) { return enable ? ASM_AUTO : ASM_NONE; }
 };
 
 
-#endif /* __CPU_H__ */
+} /* namespace xmrig */
+
+
+#endif /* XMRIG_ASM_H */

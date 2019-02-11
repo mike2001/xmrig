@@ -4,8 +4,9 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2016-2017 XMRig       <support@xmrig.com>
- *
+ * Copyright 2017-2019 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,21 +22,37 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+#include <thread>
 
-#include <windows.h>
+#if __ARM_FEATURE_CRYPTO
+#   include <sys/auxv.h>
+#   include <asm/hwcap.h>
+#endif
 
 
-#include "Cpu.h"
+#include "common/cpu/BasicCpuInfo.h"
 
 
-void Cpu::init()
+xmrig::BasicCpuInfo::BasicCpuInfo() :
+    m_aes(false),
+    m_avx2(false),
+    m_brand(),
+    m_threads(std::thread::hardware_concurrency())
 {
-#   ifdef XMRIG_NO_LIBCPUID
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-
-    m_totalThreads = sysinfo.dwNumberOfProcessors;
+#   ifdef XMRIG_ARMv8
+    memcpy(m_brand, "ARMv8", 5);
+#   else
+    memcpy(m_brand, "ARMv7", 5);
 #   endif
 
-    initCommon();
+#   if __ARM_FEATURE_CRYPTO
+    m_aes = getauxval(AT_HWCAP) & HWCAP_AES;
+#   endif
+}
+
+
+size_t xmrig::BasicCpuInfo::optimalThreadsCount(size_t memSize, int maxCpuUsage) const
+{
+    return threads();
 }
